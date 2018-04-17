@@ -42,7 +42,7 @@ func main() {
 	} else {
 		if *format == "csv" {
 			w := csv.NewWriter(os.Stdout)
-			for _, r := range res["results"].([]interface{}) {
+			for _, r := range res["rows"].([]interface{}) {
 				w.Write(r.([]string))
 			}
 			w.Flush()

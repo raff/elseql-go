@@ -187,11 +187,11 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 
 		hits := full["hits"].(jmap)
 		list := hits["hits"].([]interface{})
-		results := make([]interface{}, 0, len(list))
+		rows := make([]interface{}, 0, len(list))
 		for _, r := range list {
-			results = append(results, r.(jmap)["_source"])
+			rows = append(rows, r.(jmap)["_source"])
 		}
-		data["results"] = results
+		data["rows"] = rows
 		data["total"] = int(hits["total"].(float64))
 		return data, nil
 
@@ -205,7 +205,7 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 
 		hits := full["hits"].(jmap)
 		list := hits["hits"].([]interface{})
-		results := make([]interface{}, 0, len(list))
+		rows := make([]interface{}, 0, len(list))
 		for _, r := range list {
 			m := r.(jmap)["_source"].(jmap)
 
@@ -214,17 +214,18 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 				for i, k := range query.SelectList {
 					a[i] = stringify(getpath(m, k))
 				}
-				results = append(results, a)
+				rows = append(rows, a)
 			} else {
 				a := make([]interface{}, l)
 				for i, k := range query.SelectList {
 					a[i] = getpath(m, k)
 				}
-				results = append(results, a)
+				rows = append(rows, a)
 			}
 
 		}
-		data["results"] = results
+		data["columns"] = query.SelectList
+		data["rows"] = rows
 		data["total"] = int(hits["total"].(float64))
 		return data, nil
 	}
