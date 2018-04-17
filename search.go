@@ -27,7 +27,15 @@ func nvList(lin []NameValue) (lout []jmap) {
 
 // void search(String queryString, Util.Format format, boolean streaming, boolean debug)
 
-func (es *ElseSearch) Search(queryString string) (jmap, error) {
+type ReturnType int
+
+const (
+	Full ReturnType = iota
+	Data
+	List
+)
+
+func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, error) {
 	parser := NewParser(queryString)
 
 	if err := parser.Parse(); err != nil {
@@ -42,8 +50,8 @@ func (es *ElseSearch) Search(queryString string) (jmap, error) {
 		jq = jmap{
 			"query": jmap{
 				"query_string": jmap{
-					"query":            query.WhereExpr.QueryString(),
-					"default_operator": "AND",
+					"query": query.WhereExpr.QueryString(),
+					//"default_operator": "AND",
 				},
 			},
 		}
@@ -127,5 +135,30 @@ func (es *ElseSearch) Search(queryString string) (jmap, error) {
 		return nil, err
 	}
 
-	return res.Json().MustMap(), nil
+	full := res.Json().MustMap()
+
+	switch returnType {
+	case Full:
+		return full, nil
+
+	case Data:
+		data := jmap{}
+		if aggs, ok := full["aggregations"]; ok {
+			data["facets"] = aggs
+		}
+
+		hits := full["hits"].(jmap)
+		list := hits["hits"].([]interface{})
+		results := make([]interface{}, 0, len(list))
+		for _, r := range list {
+			results = append(results, r.(jmap)["_source"])
+		}
+		data["results"] = results
+		data["total"] = int(hits["total"].(float64))
+		return data, nil
+
+	case List:
+	}
+
+	return nil, nil
 }
