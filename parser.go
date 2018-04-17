@@ -244,7 +244,7 @@ func (e *Expression) QueryString() string {
 		return fmt.Sprintf("%q", e.operands[0])
 
 	case OP_NOT:
-		expr := e.operands[0].(Expression)
+		expr := e.operands[0].(*Expression)
 		return "NOT " + expr.QueryString()
 
 	case EQ:
@@ -272,7 +272,7 @@ func (e *Expression) QueryString() string {
 		return n + ":[" + v + " TO *]"
 
 	case OP_AND, OP_OR:
-		return e.join(e.op.String())
+		return e.join()
 	}
 
 	return e.String()
@@ -286,14 +286,15 @@ func (e *Expression) MissingExpression() bool {
 	return e.op == MISSING_EXPR
 }
 
-func (e *Expression) join(sep string) string {
-	expr := e.operands[0].(Expression)
+func (e *Expression) join() string {
+	sep := e.op.String()
+	expr := e.operands[0].(*Expression)
 
-	ret := e.String()
+	ret := expr.QueryString()
 
-	for _, op := range e.operands {
-		expr = op.(Expression)
-		ret += fmt.Sprintf(" %v %v", sep, expr)
+	for _, op := range e.operands[1:] {
+		expr = op.(*Expression)
+		ret += fmt.Sprintf(" %v %v", sep, expr.QueryString())
 	}
 
 	return ret
