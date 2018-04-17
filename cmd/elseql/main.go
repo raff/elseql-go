@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -10,9 +11,12 @@ import (
 )
 
 func main() {
+	url := flag.String("url", "http://localhost:9200", "ElasticSearch endpoint")
+	flag.Parse()
+
 	q := strings.Join(os.Args[1:], " ")
 
-	es := elseql.NewClient("http://localhost:9200")
+	es := elseql.NewClient(*url)
 	res, err := es.Search(q)
 	if err != nil {
 		fmt.Println("ERROR", err)
