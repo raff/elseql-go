@@ -146,7 +146,14 @@ type NameValue struct {
 }
 
 func (nv NameValue) String() string {
-	return fmt.Sprintf("{%v: %v}", nv.Name, nv.Value)
+	v := ""
+	if s, ok := nv.Value.(string); ok {
+		v = fmt.Sprintf("%q", s)
+	} else {
+		v = fmt.Sprintf("%v", nv.Value)
+	}
+
+	return fmt.Sprintf("{%q: %v}", nv.Name, v)
 }
 
 func (nv NameValue) Strings() (n, v string) {
@@ -261,11 +268,11 @@ func (e *Expression) QueryString() string {
 	return e.String()
 }
 
-func (e *Expression) isExistsExpression() bool {
+func (e *Expression) ExistsExpression() bool {
 	return e.op == EXISTS_EXPR
 }
 
-func (e *Expression) isMissingExpression() bool {
+func (e *Expression) MissingExpression() bool {
 	return e.op == MISSING_EXPR
 }
 
@@ -287,7 +294,7 @@ func (e *Expression) addOperand(expr interface{}) *Expression {
 	return e
 }
 
-func (e *Expression) getOperand() interface{} {
+func (e *Expression) GetOperand() interface{} {
 	return e.operands[0]
 }
 
