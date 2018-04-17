@@ -1,6 +1,7 @@
 package elseql
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/gobs/httpclient"
@@ -33,6 +34,7 @@ const (
 	Full ReturnType = iota
 	Data
 	List
+	StringList
 )
 
 func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, error) {
@@ -157,7 +159,38 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 		data["total"] = int(hits["total"].(float64))
 		return data, nil
 
-	case List:
+	case List, StringList:
+		data := jmap{}
+		if aggs, ok := full["aggregations"]; ok {
+			data["facets"] = aggs
+		}
+
+		l := len(query.SelectList)
+
+		hits := full["hits"].(jmap)
+		list := hits["hits"].([]interface{})
+		results := make([]interface{}, 0, len(list))
+		for _, r := range list {
+			m := r.(jmap)["_source"].(jmap)
+
+			if returnType == StringList {
+				a := make([]string, l)
+				for i, k := range query.SelectList {
+					a[i] = fmt.Sprintf("%v", m[k])
+				}
+				results = append(results, a)
+			} else {
+				a := make([]interface{}, l)
+				for i, k := range query.SelectList {
+					a[i] = m[k]
+				}
+				results = append(results, a)
+			}
+
+		}
+		data["results"] = results
+		data["total"] = int(hits["total"].(float64))
+		return data, nil
 	}
 
 	return nil, nil
