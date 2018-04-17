@@ -241,7 +241,7 @@ func (e *Expression) QueryString() string {
 
 	switch e.op {
 	case STRING_EXPR:
-		return fmt.Sprintf("%q", e.operands[0])
+		return e.operands[0].(string)
 
 	case OP_NOT:
 		expr := e.operands[0].(*Expression)
