@@ -171,7 +171,7 @@ type Query struct {
 	WhereExpr  *Expression
 	FilterExpr *Expression
 
-	Script    NameValue
+	Script    *NameValue
 	OrderList []NameValue
 
 	From int
@@ -179,15 +179,15 @@ type Query struct {
 }
 
 func (q *Query) String() string {
-	return fmt.Sprintf(`select %v
-    facet %v
-    index %v
-    where %v
-    filter %v
-    script %v
-    order %v
-    from %v
-    size %v`, q.SelectList,
+	return fmt.Sprintf(`Select %v
+    Facet %v
+    Index %v
+    Where %v
+    Filter %v
+    Script %v
+    Order %v
+    From %v
+    Size %v`, q.SelectList,
 		q.FacetList,
 		q.Index,
 		q.WhereExpr,
@@ -802,22 +802,22 @@ func (p *ElseParser) parseFilter() (*Expression, error) {
 /*
  * parse scriptId = "script expression"
  */
-func (p *ElseParser) parseScript() (NameValue, error) {
+func (p *ElseParser) parseScript() (*NameValue, error) {
 	id := p.parseId()
 	if id == "" {
-		return NameValue{}, p.parseError("id")
+		return nil, p.parseError("id")
 	}
 
 	if op, _ := p.parseOperator(); op != EQ {
-		return NameValue{}, p.parseError("=")
+		return nil, p.parseError("=")
 	}
 
 	script, _ := p.parseString()
 	if script == "" {
-		return NameValue{}, p.parseError("script")
+		return nil, p.parseError("script")
 	}
 
-	return NameValue{id, script}, nil
+	return &NameValue{id, script}, nil
 }
 
 /*
