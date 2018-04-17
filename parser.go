@@ -164,18 +164,18 @@ func (nv NameValue) Strings() (n, v string) {
  * This is the output of a parsed statement
  */
 type Query struct {
-	selectList []string
-	facetList  []string
+	SelectList []string
+	FacetList  []string
 
-	index      string
-	whereExpr  *Expression
-	filterExpr *Expression
+	Index      string
+	WhereExpr  *Expression
+	FilterExpr *Expression
 
-	script    NameValue
-	orderList []NameValue
+	Script    NameValue
+	OrderList []NameValue
 
-	from int
-	size int
+	From int
+	Size int
 }
 
 func (q *Query) String() string {
@@ -187,14 +187,14 @@ func (q *Query) String() string {
     script %v
     order %v
     from %v
-    size %v`, q.selectList,
-		q.facetList,
-		q.index,
-		q.whereExpr,
-		q.filterExpr.QueryString(),
-		q.script,
-		q.orderList,
-		q.from, q.size)
+    size %v`, q.SelectList,
+		q.FacetList,
+		q.Index,
+		q.WhereExpr,
+		q.FilterExpr.QueryString(),
+		q.Script,
+		q.OrderList,
+		q.From, q.Size)
 }
 
 type Expression struct {
@@ -835,23 +835,23 @@ func (p *ElseParser) Parse() (err error) {
 	}
 
 	if match, _ := p.parseToken(all_fields, true); match {
-		p.query.selectList = nil // all fields
+		p.query.SelectList = nil // all fields
 	} else {
-		p.query.selectList, err = p.parseIdentifiers()
+		p.query.SelectList, err = p.parseIdentifiers()
 		if err != nil {
 			return
 		}
 	}
 
 	if match, _ := p.parseKeyword(FACETS, true); match {
-		p.query.facetList, err = p.parseIdentifiers()
+		p.query.FacetList, err = p.parseIdentifiers()
 		if err != nil {
 			return
 		}
 	}
 
 	if match, _ := p.parseKeyword(SCRIPT, true); match {
-		p.query.script, err = p.parseScript()
+		p.query.Script, err = p.parseScript()
 		if err != nil {
 			return
 		}
@@ -861,20 +861,20 @@ func (p *ElseParser) Parse() (err error) {
 		return
 	}
 
-	p.query.index, err = p.parseIdentifier()
+	p.query.Index, err = p.parseIdentifier()
 	if err != nil {
 		return
 	}
 
 	if match, _ := p.parseKeyword(WHERE, true); match {
-		p.query.whereExpr, err = p.parseExpression()
+		p.query.WhereExpr, err = p.parseExpression()
 		if err != nil {
 			return
 		}
 	}
 
 	if match, _ := p.parseKeyword(FILTER, true); match {
-		p.query.filterExpr, err = p.parseFilter()
+		p.query.FilterExpr, err = p.parseFilter()
 		if err != nil {
 			return
 		}
@@ -884,7 +884,7 @@ func (p *ElseParser) Parse() (err error) {
 		if err = p.parseRequired(BY); err != nil {
 			return
 		}
-		if p.query.orderList, err = p.parseOrderIdentifiers(); err != nil {
+		if p.query.OrderList, err = p.parseOrderIdentifiers(); err != nil {
 			return
 		}
 	}
@@ -896,14 +896,14 @@ func (p *ElseParser) Parse() (err error) {
 		}
 
 		if match, _ := p.parseToken(list_sep, true); match {
-			p.query.from = v
+			p.query.From = v
 			v, ierr = p.parseInteger()
 			if ierr != nil {
 				return ierr
 			}
 		}
 
-		p.query.size = v
+		p.query.Size = v
 	}
 
 	if !p.parseDone() {
