@@ -556,7 +556,7 @@ func (p *ElseParser) parseOrderIdentifier(sortorder bool) (NameValue, error) {
 		// expect sortorder
 		//
 		if state == 2 {
-			order = p.parseKeywords([]Keyword{ASC, DESC}, ASC).String()
+			order = strings.ToLower(p.parseKeywords([]Keyword{ASC, DESC}, ASC).String())
 		}
 
 		break
@@ -911,6 +911,8 @@ func (p *ElseParser) Parse() (err error) {
 		}
 
 		p.query.Size = v
+	} else {
+		p.query.Size = -1
 	}
 
 	if !p.parseDone() {
