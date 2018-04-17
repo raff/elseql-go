@@ -3,6 +3,7 @@ package elseql
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/gobs/httpclient"
 	"github.com/gobs/simplejson"
@@ -23,6 +24,41 @@ func nvList(lin []NameValue) (lout []jmap) {
 		lout = append(lout, jmap{nv.Name: nv.Value})
 	}
 
+	return
+}
+
+func stringify(v interface{}) string {
+	switch vv := v.(type) {
+	case string:
+		return vv
+
+	case nil:
+		return ""
+	}
+
+	return fmt.Sprintf("%v", v)
+}
+
+func getpath(m jmap, k string) (ret interface{}) {
+	parts := strings.Split(k, ".")
+	ret = m
+	for _, k := range parts {
+	redo:
+		if mm, ismap := ret.(jmap); ismap {
+			if val, ok := mm[k]; ok {
+				ret = val
+			} else {
+				return nil
+			}
+		} else if aa, isarray := ret.([]interface{}); isarray {
+			if len(aa) > 0 {
+				ret = aa[0]
+				goto redo
+			} else {
+				return nil
+			}
+		}
+	}
 	return
 }
 
@@ -176,13 +212,13 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 			if returnType == StringList {
 				a := make([]string, l)
 				for i, k := range query.SelectList {
-					a[i] = fmt.Sprintf("%v", m[k])
+					a[i] = stringify(getpath(m, k))
 				}
 				results = append(results, a)
 			} else {
 				a := make([]interface{}, l)
 				for i, k := range query.SelectList {
-					a[i] = m[k]
+					a[i] = getpath(m, k)
 				}
 				results = append(results, a)
 			}
