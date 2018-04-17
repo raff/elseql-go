@@ -1,10 +1,10 @@
 package elseql
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/gobs/httpclient"
-	"github.com/gobs/pretty"
+	"github.com/gobs/simplejson"
 )
 
 type jmap = map[string]interface{}
@@ -112,9 +112,8 @@ func (es *ElseSearch) Search(queryString string) (jmap, error) {
 		jq["size"] = query.Size
 	}
 
-	if DEBUG {
-		fmt.Println("SEARCH", query.Index)
-		pretty.PrettyPrint(jq)
+	if Debug {
+		log.Println("SEARCH", query.Index, simplejson.MustDumpString(jq))
 	}
 
 	res, err := es.client.SendRequest(es.client.Path(query.Index+"/_search"), es.client.JsonBody(jq))

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/gobs/pretty"
@@ -12,9 +11,10 @@ import (
 
 func main() {
 	url := flag.String("url", "http://localhost:9200", "ElasticSearch endpoint")
+	flag.BoolVar(&elseql.Debug, "debug", false, "log debug info")
 	flag.Parse()
 
-	q := strings.Join(os.Args[1:], " ")
+	q := strings.Join(flag.Args(), " ")
 
 	es := elseql.NewClient(*url)
 	res, err := es.Search(q)

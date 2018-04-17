@@ -10,9 +10,11 @@ import (
 
 /* SELECT a,b,c FACETS d,e,f FROM t WHERE expr FILTER expr ORDER BY g,h,i LIMIT n,m */
 
-const (
-	DEBUG = true
+var (
+	Debug = false
+)
 
+const (
 	id_sep     = '.'
 	list_sep   = ','
 	all_fields = '*'
@@ -156,6 +158,14 @@ func (nv NameValue) String() string {
 	return fmt.Sprintf("{%q: %v}", nv.Name, v)
 }
 
+func (nv NameValue) QueryString() string {
+	if s, ok := nv.Value.(string); ok {
+		return fmt.Sprintf("%v:%q", nv.Name, s)
+	} else {
+		return fmt.Sprintf("%v:%v", nv.Name, nv.Value)
+	}
+}
+
 func (nv NameValue) Strings() (n, v string) {
 	n = nv.Name
 	if s, ok := nv.Value.(string); ok {
@@ -231,7 +241,7 @@ func (e *Expression) QueryString() string {
 
 	switch e.op {
 	case STRING_EXPR:
-		return fmt.Sprintf("%v", e.operands[0])
+		return fmt.Sprintf("%q", e.operands[0])
 
 	case OP_NOT:
 		expr := e.operands[0].(Expression)
@@ -239,11 +249,11 @@ func (e *Expression) QueryString() string {
 
 	case EQ:
 		nv := e.operands[0].(NameValue)
-		return nv.String()
+		return nv.QueryString()
 
 	case NE:
 		nv := e.operands[0].(NameValue)
-		return "NOT " + nv.String()
+		return "NOT " + nv.QueryString()
 
 	case LT:
 		n, v := e.operands[0].(NameValue).Strings()
@@ -398,7 +408,7 @@ func (p *ElseParser) parseKeyword(k Keyword, optional bool) (bool, error) {
 	}
 
 	if p.lastToken == scanner.Ident && k.Lower() == strings.ToLower(p.lastText) {
-		if DEBUG {
+		if Debug {
 			log.Println("got keyword", k)
 		}
 
@@ -489,8 +499,8 @@ func (p *ElseParser) parseId() string {
 	if p.lastToken == scanner.Ident {
 		word := p.lastText
 
-		if DEBUG {
-			log.Println("got " + word)
+		if Debug {
+			log.Println("got id", word)
 		}
 
 		if _, ok := FindKeyword(word); ok {
@@ -659,7 +669,8 @@ func (p *ElseParser) parseString() (string, error) {
 	token := p.nextToken()
 
 	if token == scanner.String || token == scanner.RawString {
-		s := p.lastText
+		s, _ := strconv.Unquote(p.lastText)
+		log.Println("got string", s)
 		p.lastText = ""
 		return s, nil
 	}
@@ -674,20 +685,23 @@ func (p *ElseParser) parseValue() (interface{}, error) {
 	token := p.nextToken()
 
 	if token == scanner.String || token == scanner.RawString {
-		s := p.lastText
+		s, _ := strconv.Unquote(p.lastText)
 		p.lastText = ""
+		log.Println("got value", s)
 		return s, nil
 	}
 
 	if token == scanner.Int {
 		n := p.lastText
 		p.lastText = ""
+		log.Println("got value", n)
 		return strconv.Atoi(n)
 	}
 
 	if token == scanner.Float {
 		n := p.lastText
 		p.lastText = ""
+		log.Println("got value", n)
 		return strconv.ParseFloat(n, 64)
 	}
 
@@ -734,8 +748,8 @@ func (p *ElseParser) parseOperator() (Operator, error) {
 		err = p.parseError("operator")
 	}
 
-	if DEBUG {
-		log.Println("got operator", op, "error", err)
+	if Debug {
+		log.Println("got operator", op, "error:", err)
 	}
 
 	return op, err
