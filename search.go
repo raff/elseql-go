@@ -3,6 +3,7 @@ package elseql
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/gobs/httpclient"
@@ -201,30 +202,39 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 			data["facets"] = aggs
 		}
 
-		l := len(query.SelectList)
-
 		hits := full["hits"].(jmap)
 		list := hits["hits"].([]interface{})
 		rows := make([]interface{}, 0, len(list))
+
+		columns := query.SelectList
+		if len(columns) == 0 && len(list) > 0 {
+			m := list[0].(jmap)["_source"].(jmap) // assume the first row has all the names
+			for k, _ := range m {
+				columns = append(columns, k)
+			}
+			sort.Strings(columns)
+		}
+		l := len(columns)
+
 		for _, r := range list {
 			m := r.(jmap)["_source"].(jmap)
 
 			if returnType == StringList {
 				a := make([]string, l)
-				for i, k := range query.SelectList {
+				for i, k := range columns {
 					a[i] = stringify(getpath(m, k))
 				}
 				rows = append(rows, a)
 			} else {
 				a := make([]interface{}, l)
-				for i, k := range query.SelectList {
+				for i, k := range columns {
 					a[i] = getpath(m, k)
 				}
 				rows = append(rows, a)
 			}
 
 		}
-		data["columns"] = query.SelectList
+		data["columns"] = columns
 		data["rows"] = rows
 		data["total"] = int(hits["total"].(float64))
 		return data, nil
