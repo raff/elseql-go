@@ -671,8 +671,10 @@ func (p *ElseParser) parseString() (string, error) {
 
 	if token == scanner.String || token == scanner.RawString {
 		s, _ := strconv.Unquote(p.lastText)
-		log.Println("got string", s)
 		p.lastText = ""
+		if Debug {
+			log.Println("got string", s)
+		}
 		return s, nil
 	}
 
@@ -688,21 +690,27 @@ func (p *ElseParser) parseValue() (interface{}, error) {
 	if token == scanner.String || token == scanner.RawString {
 		s, _ := strconv.Unquote(p.lastText)
 		p.lastText = ""
-		log.Println("got value", s)
+		if Debug {
+			log.Println("got value", s)
+		}
 		return s, nil
 	}
 
 	if token == scanner.Int {
 		n := p.lastText
 		p.lastText = ""
-		log.Println("got value", n)
+		if Debug {
+			log.Println("got value", n)
+		}
 		return strconv.Atoi(n)
 	}
 
 	if token == scanner.Float {
 		n := p.lastText
 		p.lastText = ""
-		log.Println("got value", n)
+		if Debug {
+			log.Println("got value", n)
+		}
 		return strconv.ParseFloat(n, 64)
 	}
 
