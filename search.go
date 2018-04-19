@@ -186,7 +186,10 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 	}
 
 	if err = res.ResponseError(); err != nil {
-		return nil, err
+		return nil, SearchError{
+			Err:   err,
+			Query: simplejson.MustDumpString(jq),
+		}
 	}
 
 	full := res.Json().MustMap()
