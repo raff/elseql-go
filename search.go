@@ -74,11 +74,23 @@ const (
 	StringList
 )
 
+type SearchError struct {
+	Err   error
+	Query string
+}
+
+func (e SearchError) Error() string {
+	return fmt.Sprintf("Error: %q Query: %v", e.Err, e.Query)
+}
+
 func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, error) {
 	parser := NewParser(queryString)
 
 	if err := parser.Parse(); err != nil {
-		return nil, err
+		return nil, SearchError{
+			Err:   err,
+			Query: queryString,
+		}
 	}
 
 	var jq jmap
@@ -167,7 +179,10 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 	defer res.Close()
 
 	if err != nil {
-		return nil, err
+		return nil, SearchError{
+			Err:   err,
+			Query: simplejson.MustDumpString(jq),
+		}
 	}
 
 	if err = res.ResponseError(); err != nil {
