@@ -33,6 +33,7 @@ const (
 	ORDER
 	BY
 	LIMIT
+	AFTER
 	ASC
 	DESC
 	AND
@@ -96,6 +97,7 @@ var (
 		"ORDER":   ORDER,
 		"BY":      BY,
 		"LIMIT":   LIMIT,
+		"AFTER":   AFTER,
 		"ASC":     ASC,
 		"DESC":    DESC,
 		"AND":     AND,
@@ -117,6 +119,7 @@ var (
 		ORDER:   "ORDER",
 		BY:      "BY",
 		LIMIT:   "LIMIT",
+		AFTER:   "AFTER",
 		ASC:     "ASC",
 		DESC:    "DESC",
 		AND:     "AND",
@@ -191,8 +194,9 @@ type Query struct {
 	Script    *NameValue
 	OrderList []NameValue
 
-	From int
-	Size int
+	From  int
+	Size  int
+	After string
 }
 
 func (q *Query) String() string {
@@ -204,14 +208,15 @@ func (q *Query) String() string {
     Script %v
     Order %v
     From %v
-    Size %v`, q.SelectList,
+    Size %v
+    After %v`, q.SelectList,
 		q.FacetList,
 		q.Index,
 		q.WhereExpr,
 		q.FilterExpr.QueryString(),
 		q.Script,
 		q.OrderList,
-		q.From, q.Size)
+		q.From, q.Size, q.After)
 }
 
 type Expression struct {
@@ -936,6 +941,15 @@ func (p *ElseParser) Parse() (err error) {
 		p.query.Size = v
 	} else {
 		p.query.Size = -1
+	}
+
+	if match, _ := p.parseKeyword(AFTER, true); match {
+		v, perr := p.parseString()
+		if perr != nil {
+			return perr
+		}
+
+		p.query.After = v
 	}
 
 	if !p.parseDone() {

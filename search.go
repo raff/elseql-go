@@ -1,6 +1,7 @@
 package elseql
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"sort"
@@ -73,6 +74,26 @@ const (
 	List
 	StringList
 )
+
+func encodeObject(obj interface{}) string {
+	jb := simplejson.MustDumpBytes(obj)
+	return base64.RawURLEncoding.EncodeToString(jb)
+}
+
+func decodeObject(encoded string) interface{} {
+	// assume it's a base64 encoded object
+	if bb, err := base64.RawURLEncoding.DecodeString(encoded); err == nil {
+		encoded = string(bb)
+	}
+
+	// here it should be a JSON encoded object
+	ret, err := simplejson.LoadString(encoded)
+	if err != nil {
+		return nil
+	}
+
+	return ret.Data()
+}
 
 type SearchError struct {
 	Err   error
@@ -184,6 +205,18 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 			jq["size"] = query.Size
 		}
 
+		if query.After != "" {
+			after := decodeObject(query.After)
+			if after == nil {
+				return nil, SearchError{
+					Err:   ParseError("invalid value for AFTER"),
+					Query: queryString,
+				}
+			}
+
+			jq["search_after"] = after
+		}
+
 		index = query.Index
 		if index == "_all" {
 			index = ""
@@ -235,11 +268,16 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 		hits := full["hits"].(jmap)
 		list := hits["hits"].([]interface{})
 		rows := make([]interface{}, 0, len(list))
+		var last interface{}
 		for _, r := range list {
 			rows = append(rows, r.(jmap)["_source"])
+			last = r.(jmap)["sort"]
 		}
 		data["rows"] = rows
 		data["total"] = int(hits["total"].(float64))
+		if last != nil {
+			data["last"] = encodeObject(last)
+		}
 		return data, nil
 
 	case List, StringList:
@@ -251,6 +289,7 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 		hits := full["hits"].(jmap)
 		list := hits["hits"].([]interface{})
 		rows := make([]interface{}, 0, len(list))
+		var last interface{}
 
 		if len(columns) == 0 && len(list) > 0 {
 			m := list[0].(jmap)["_source"].(jmap) // assume the first row has all the names
@@ -263,6 +302,7 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 
 		for _, r := range list {
 			m := r.(jmap)["_source"].(jmap)
+			last = r.(jmap)["sort"]
 
 			if returnType == StringList {
 				a := make([]string, l)
@@ -282,6 +322,9 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 		data["columns"] = columns
 		data["rows"] = rows
 		data["total"] = int(hits["total"].(float64))
+		if last != nil {
+			data["last"] = encodeObject(last)
+		}
 		return data, nil
 	}
 
