@@ -97,7 +97,7 @@ func main() {
 				} else {
 					enc := json.NewEncoder(os.Stdout)
 					enc.SetEscapeHTML(false)
-					enc.SetIndent(*pprint, *pprint)
+					enc.SetIndent("", *pprint)
 					enc.Encode(data)
 				}
 			}
