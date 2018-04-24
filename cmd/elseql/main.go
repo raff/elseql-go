@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gobs/httpclient"
 	"github.com/gobs/pretty"
 	"github.com/peterh/liner"
 	"github.com/raff/elseql-go"
@@ -45,14 +46,13 @@ func init() {
 
 func main() {
 	url := flag.String("url", "http://localhost:9200", "ElasticSearch endpoint")
-	format := flag.String("format", "data", "format of results: full, data, list, csv")
+	format := flag.String("format", "data", "format of results: full, data, list, csv, csv-headers")
 	pprint := flag.String("print", "", `how to print/indent output: use pretty for pretty-print or "  " to indent`)
+	proxy := flag.Bool("proxy", false, "if true, we are talking to a proxy server")
 	flag.BoolVar(&elseql.Debug, "debug", false, "log debug info")
 	flag.Parse()
 
 	q := strings.Join(flag.Args(), " ")
-
-	es := elseql.NewClient(*url)
 
 	var rType elseql.ReturnType
 
@@ -63,28 +63,70 @@ func main() {
 		rType = elseql.Data
 	case "list":
 		rType = elseql.List
-	case "csv":
+	case "csv", "csv-headers":
 		rType = elseql.StringList
 	}
 
-	runQuery := func(q string) {
-		res, err := es.Search(q, rType)
-		if err != nil {
-			log.Println("ERROR", err)
-		} else {
-			if *format == "csv" {
-				w := csv.NewWriter(os.Stdout)
-				for _, r := range res["rows"].([]interface{}) {
-					w.Write(r.([]string))
-				}
-				w.Flush()
-			} else if *pprint == "pretty" {
-				pretty.PrettyPrint(res)
+	var runQuery func(string)
+
+	if *proxy {
+		esproxy := httpclient.NewHttpClient(*url)
+		esproxy.Verbose = elseql.Debug
+
+		runQuery = func(q string) {
+			res, err := esproxy.Get("", map[string]interface{}{
+				"q": q,
+				"f": *format,
+			}, nil)
+			if err == nil {
+				err = res.ResponseError()
+			}
+
+			defer res.Close()
+			if err != nil {
+				log.Println("ERROR", err)
+			} else if *format == "csv" || *format == "csv-headers" || *pprint == "" {
+				io.Copy(os.Stdout, res.Body)
 			} else {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetEscapeHTML(false)
-				enc.SetIndent(*pprint, *pprint)
-				enc.Encode(res)
+				var data interface{}
+				err = json.NewDecoder(res.Body).Decode(&data)
+				if err != nil {
+					log.Println("ERROR", err)
+				} else if *pprint == "pretty" {
+					pretty.PrettyPrint(data)
+				} else {
+					enc := json.NewEncoder(os.Stdout)
+					enc.SetEscapeHTML(false)
+					enc.SetIndent(*pprint, *pprint)
+					enc.Encode(data)
+				}
+			}
+		}
+	} else {
+		es := elseql.NewClient(*url)
+
+		runQuery = func(q string) {
+			res, err := es.Search(q, "", rType)
+			if err != nil {
+				log.Println("ERROR", err)
+			} else {
+				if *format == "csv" || *format == "csv-headers" {
+					w := csv.NewWriter(os.Stdout)
+					if *format == "csv-headers" {
+						w.Write(res["columns"].([]string))
+					}
+					for _, r := range res["rows"].([]interface{}) {
+						w.Write(r.([]string))
+					}
+					w.Flush()
+				} else if *pprint == "pretty" {
+					pretty.PrettyPrint(res)
+				} else {
+					enc := json.NewEncoder(os.Stdout)
+					enc.SetEscapeHTML(false)
+					enc.SetIndent(*pprint, *pprint)
+					enc.Encode(res)
+				}
 			}
 		}
 	}
