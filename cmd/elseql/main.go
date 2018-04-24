@@ -65,6 +65,8 @@ func main() {
 		rType = elseql.List
 	case "csv", "csv-headers":
 		rType = elseql.StringList
+	default:
+		log.Fatalf("invalid format %q - use full,data,list,csv or csv-headers", format)
 	}
 
 	var runQuery func(string)
