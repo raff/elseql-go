@@ -219,11 +219,11 @@ func (es *ElseSearch) Search(queryString, after string, returnType ReturnType) (
 			}
 
 			jq["search_after"] = after
-                        if jq["sort"] != nil {
-			    jq["sort"] = append(jq["sort"].([]jmap), jmap{"_id": "asc"})
-                        } else {
-			    jq["sort"] = []jmap{jmap{"_id": "asc"}}
-                        }
+			if jq["sort"] != nil {
+				jq["sort"] = append(jq["sort"].([]jmap), jmap{"_id": "asc"})
+			} else {
+				jq["sort"] = []jmap{jmap{"_id": "asc"}}
+			}
 		}
 
 		index = query.Index
