@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"sort"
 	"strings"
 
@@ -34,20 +35,27 @@ var (
 		"_all",
 		"keyword",
 	}
-)
 
-const (
 	historyfile = ".elseql"
 )
 
 func init() {
 	sort.Strings(keywords)
+
+	// check current directory
+	if _, err := os.Stat(historyfile); os.IsNotExist(err) {
+		// check home directory
+		homepath := path.Join(os.Getenv("HOME"), historyfile)
+		if _, err = os.Stat(homepath); err == nil {
+			historyfile = homepath
+		}
+	}
 }
 
 func main() {
 	url := flag.String("url", "http://localhost:9200", "ElasticSearch endpoint")
 	format := flag.String("format", "data", "format of results: full, data, list, csv, csv-headers")
-	pprint := flag.String("print", "", `how to print/indent output: use pretty for pretty-print or "  " to indent`)
+	pprint := flag.String("print", " ", `how to print/indent output: use pretty for pretty-print or "  " to indent`)
 	proxy := flag.Bool("proxy", false, "if true, we are talking to a proxy server")
 	flag.BoolVar(&elseql.Debug, "debug", false, "log debug info")
 	flag.Parse()
@@ -138,6 +146,7 @@ func main() {
 		return
 	}
 
+	hasHistory := false
 	line := liner.NewLiner()
 	defer line.Close()
 
@@ -147,9 +156,11 @@ func main() {
 	}
 
 	defer func() {
-		if f, err := os.Create(historyfile); err == nil {
-			line.WriteHistory(f)
-			f.Close()
+		if hasHistory {
+			if f, err := os.Create(historyfile); err == nil {
+				line.WriteHistory(f)
+				f.Close()
+			}
 		}
 	}()
 
@@ -213,6 +224,7 @@ func main() {
 		}
 
 		line.AppendHistory(cmd)
+		hasHistory = true
 		runQuery(cmd)
 	}
 }
