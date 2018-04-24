@@ -175,7 +175,7 @@ func main() {
 		w = strings.ToUpper(w)
 
 		for _, n := range keywords {
-			if strings.HasPrefix(n, w) {
+			if strings.HasPrefix(strings.ToUpper(n), w) {
 				completions = append(completions, n)
 			}
 		}
