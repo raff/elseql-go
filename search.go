@@ -104,7 +104,7 @@ func (e SearchError) Error() string {
 	return fmt.Sprintf("Error: %q Query: %v", e.Err, e.Query)
 }
 
-func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, error) {
+func (es *ElseSearch) Search(queryString, after string, returnType ReturnType) (jmap, error) {
 	var jq jmap
 	var index string
 	var columns []string
@@ -206,7 +206,11 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 		}
 
 		if query.After != "" {
-			after := decodeObject(query.After)
+			after = query.After
+		}
+
+		if after != "" {
+			after := decodeObject(after)
 			if after == nil {
 				return nil, SearchError{
 					Err:   ParseError("invalid value for AFTER"),
@@ -215,6 +219,11 @@ func (es *ElseSearch) Search(queryString string, returnType ReturnType) (jmap, e
 			}
 
 			jq["search_after"] = after
+                        if jq["sort"] != nil {
+			    jq["sort"] = append(jq["sort"].([]jmap), jmap{"_id": "asc"})
+                        } else {
+			    jq["sort"] = []jmap{jmap{"_id": "asc"}}
+                        }
 		}
 
 		index = query.Index
