@@ -139,7 +139,7 @@ func main() {
 		es := elseql.NewClient(*url)
 
 		runQuery = func(q string) (int, int) {
-			res, err := es.Search(q, "", rType)
+			res, err := es.Search(q, "", "", rType)
 			if err != nil {
 				log.Println("ERROR", err)
 				return -1, -1

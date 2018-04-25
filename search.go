@@ -31,13 +31,13 @@ func nvList(lin []NameValue) (lout []jmap) {
 	return
 }
 
-func stringify(v jobj) string {
+func stringify(v jobj, nv string) string {
 	switch vv := v.(type) {
 	case string:
 		return vv
 
 	case nil:
-		return ""
+		return nv
 
 	case jmap:
 		return strings.TrimSpace(simplejson.MustDumpString(vv))
@@ -112,7 +112,7 @@ func (e SearchError) Error() string {
 	return fmt.Sprintf("Error: %q Query: %v", e.Err, e.Query)
 }
 
-func (es *ElseSearch) Search(queryString, after string, returnType ReturnType) (jmap, error) {
+func (es *ElseSearch) Search(queryString, after, nilValue string, returnType ReturnType) (jmap, error) {
 	var jq jmap
 	var index string
 	var columns []string
@@ -324,7 +324,7 @@ func (es *ElseSearch) Search(queryString, after string, returnType ReturnType) (
 			if returnType == StringList {
 				a := make([]string, l)
 				for i, k := range columns {
-					a[i] = stringify(getpath(m, k))
+					a[i] = stringify(getpath(m, k), nilValue)
 				}
 				rows = append(rows, a)
 			} else {
