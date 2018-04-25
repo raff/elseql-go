@@ -33,7 +33,17 @@ var (
 		"LIMIT",
 		"NEXT",
 		"_all",
-		"keyword",
+		".keyword",
+
+		".format",
+	}
+
+	formats = []string{
+		"data",
+		"full",
+		"list",
+		"csv",
+		"csv-headers",
 	}
 
 	historyfile = ".elseql"
@@ -41,6 +51,7 @@ var (
 
 func init() {
 	sort.Strings(keywords)
+	sort.Strings(formats)
 
 	// check current directory
 	if _, err := os.Stat(historyfile); os.IsNotExist(err) {
@@ -52,6 +63,23 @@ func init() {
 	}
 }
 
+func returnType(f string, r elseql.ReturnType) elseql.ReturnType {
+	switch f {
+	case "full":
+		r = elseql.Full
+	case "data":
+		r = elseql.Data
+	case "list":
+		r = elseql.List
+	case "csv", "csv-headers":
+		r = elseql.StringList
+	default:
+		log.Println("invalid format %q - use full,data,list,csv or csv-headers", f)
+	}
+
+	return r
+}
+
 func main() {
 	url := flag.String("url", "http://localhost:9200", "ElasticSearch endpoint")
 	format := flag.String("format", "data", "format of results: full, data, list, csv, csv-headers")
@@ -61,21 +89,8 @@ func main() {
 	flag.Parse()
 
 	q := strings.Join(flag.Args(), " ")
-
-	var rType elseql.ReturnType
-
-	switch *format {
-	case "full":
-		rType = elseql.Full
-	case "data":
-		rType = elseql.Data
-	case "list":
-		rType = elseql.List
-	case "csv", "csv-headers":
-		rType = elseql.StringList
-	default:
-		log.Fatalf("invalid format %q - use full,data,list,csv or csv-headers", format)
-	}
+	rType := returnType(*format, elseql.Data)
+	rFormat := *format
 
 	var runQuery func(string)
 
@@ -86,7 +101,7 @@ func main() {
 		runQuery = func(q string) {
 			res, err := esproxy.Get("", map[string]interface{}{
 				"q": q,
-				"f": *format,
+				"f": rFormat,
 			}, nil)
 			if err == nil {
 				err = res.ResponseError()
@@ -95,7 +110,7 @@ func main() {
 			defer res.Close()
 			if err != nil {
 				log.Println("ERROR", err)
-			} else if *format == "csv" || *format == "csv-headers" || *pprint == "" {
+			} else if rFormat == "csv" || rFormat == "csv-headers" || *pprint == "" {
 				io.Copy(os.Stdout, res.Body)
 			} else {
 				var data interface{}
@@ -120,9 +135,9 @@ func main() {
 			if err != nil {
 				log.Println("ERROR", err)
 			} else {
-				if *format == "csv" || *format == "csv-headers" {
+				if rFormat == "csv" || rFormat == "csv-headers" {
 					w := csv.NewWriter(os.Stdout)
-					if *format == "csv-headers" {
+					if rFormat == "csv-headers" {
 						w.Write(res["columns"].([]string))
 					}
 					for _, r := range res["rows"].([]interface{}) {
@@ -174,7 +189,12 @@ func main() {
 		head = strings.TrimSuffix(head, w)
 		w = strings.ToUpper(w)
 
-		for _, n := range keywords {
+		matches := keywords
+		if strings.HasPrefix(line, ".format ") {
+			matches = formats
+		}
+
+		for _, n := range matches {
 			if strings.HasPrefix(strings.ToUpper(n), w) {
 				completions = append(completions, n)
 			}
@@ -225,6 +245,14 @@ func main() {
 
 		line.AppendHistory(cmd)
 		hasHistory = true
+
+		if strings.HasPrefix(cmd, ".format ") {
+			parts := strings.Split(cmd, " ")
+			rFormat = parts[1]
+			rType = returnType(parts[1], rType)
+			continue
+		}
+
 		runQuery(cmd)
 	}
 }
