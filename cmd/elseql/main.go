@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gobs/httpclient"
@@ -92,13 +93,13 @@ func main() {
 	rType := returnType(*format, elseql.Data)
 	rFormat := *format
 
-	var runQuery func(string)
+	var runQuery func(string) (int, int)
 
 	if *proxy {
 		esproxy := httpclient.NewHttpClient(*url)
 		esproxy.Verbose = elseql.Debug
 
-		runQuery = func(q string) {
+		runQuery = func(q string) (int, int) {
 			res, err := esproxy.Get("", map[string]interface{}{
 				"q": q,
 				"f": rFormat,
@@ -110,30 +111,38 @@ func main() {
 			defer res.Close()
 			if err != nil {
 				log.Println("ERROR", err)
-			} else if rFormat == "csv" || rFormat == "csv-headers" || *pprint == "" {
-				io.Copy(os.Stdout, res.Body)
+				return -1, -1
 			} else {
-				var data interface{}
-				err = json.NewDecoder(res.Body).Decode(&data)
-				if err != nil {
-					log.Println("ERROR", err)
-				} else if *pprint == "pretty" {
-					pretty.PrettyPrint(data)
+				if rFormat == "csv" || rFormat == "csv-headers" || *pprint == "" {
+					io.Copy(os.Stdout, res.Body)
 				} else {
-					enc := json.NewEncoder(os.Stdout)
-					enc.SetEscapeHTML(false)
-					enc.SetIndent("", *pprint)
-					enc.Encode(data)
+					var data interface{}
+					err = json.NewDecoder(res.Body).Decode(&data)
+					if err != nil {
+						log.Println("ERROR", err)
+					} else if *pprint == "pretty" {
+						pretty.PrettyPrint(data)
+					} else {
+						enc := json.NewEncoder(os.Stdout)
+						enc.SetEscapeHTML(false)
+						enc.SetIndent("", *pprint)
+						enc.Encode(data)
+					}
 				}
+
+				n, _ := strconv.Atoi(res.Header.Get("x-elseql-count"))
+				t, _ := strconv.Atoi(res.Header.Get("x-elseql-total"))
+				return n, t
 			}
 		}
 	} else {
 		es := elseql.NewClient(*url)
 
-		runQuery = func(q string) {
+		runQuery = func(q string) (int, int) {
 			res, err := es.Search(q, "", rType)
 			if err != nil {
 				log.Println("ERROR", err)
+				return -1, -1
 			} else {
 				if rFormat == "csv" || rFormat == "csv-headers" {
 					w := csv.NewWriter(os.Stdout)
@@ -152,6 +161,8 @@ func main() {
 					enc.SetIndent(*pprint, *pprint)
 					enc.Encode(res)
 				}
+
+				return len(res["rows"].([]interface{})), res["total"].(int)
 			}
 		}
 	}
@@ -253,6 +264,11 @@ func main() {
 			continue
 		}
 
-		runQuery(cmd)
+		fmt.Println()
+
+		n, t := runQuery(cmd)
+		if n >= 0 {
+			fmt.Printf("\n%v ROWS, %v TOTAL\n", n, t)
+		}
 	}
 }
