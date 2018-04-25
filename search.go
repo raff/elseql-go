@@ -11,7 +11,9 @@ import (
 	"github.com/gobs/simplejson"
 )
 
+type jobj = interface{}
 type jmap = map[string]interface{}
+type jarr = []interface{}
 
 type ElseSearch struct {
 	client *httpclient.HttpClient
@@ -29,19 +31,25 @@ func nvList(lin []NameValue) (lout []jmap) {
 	return
 }
 
-func stringify(v interface{}) string {
+func stringify(v jobj) string {
 	switch vv := v.(type) {
 	case string:
 		return vv
 
 	case nil:
 		return ""
+
+	case jmap:
+		return strings.TrimSpace(simplejson.MustDumpString(vv))
+
+	case jarr:
+		return strings.TrimSpace(simplejson.MustDumpString(vv))
 	}
 
 	return fmt.Sprintf("%v", v)
 }
 
-func getpath(m jmap, k string) (ret interface{}) {
+func getpath(m jmap, k string) (ret jobj) {
 	parts := strings.Split(k, ".")
 	ret = m
 	for _, k := range parts {
@@ -52,7 +60,7 @@ func getpath(m jmap, k string) (ret interface{}) {
 			} else {
 				return nil
 			}
-		} else if aa, isarray := ret.([]interface{}); isarray {
+		} else if aa, isarray := ret.(jarr); isarray {
 			if len(aa) > 0 {
 				ret = aa[0]
 				goto redo
@@ -75,12 +83,12 @@ const (
 	StringList
 )
 
-func encodeObject(obj interface{}) string {
+func encodeObject(obj jobj) string {
 	jb := simplejson.MustDumpBytes(obj)
 	return base64.RawURLEncoding.EncodeToString(jb)
 }
 
-func decodeObject(encoded string) interface{} {
+func decodeObject(encoded string) jobj {
 	// assume it's a base64 encoded object
 	if bb, err := base64.RawURLEncoding.DecodeString(encoded); err == nil {
 		encoded = string(bb)
@@ -275,9 +283,9 @@ func (es *ElseSearch) Search(queryString, after string, returnType ReturnType) (
 		}
 
 		hits := full["hits"].(jmap)
-		list := hits["hits"].([]interface{})
-		rows := make([]interface{}, 0, len(list))
-		var last interface{}
+		list := hits["hits"].(jarr)
+		rows := make(jarr, 0, len(list))
+		var last jobj
 		for _, r := range list {
 			rows = append(rows, r.(jmap)["_source"])
 			last = r.(jmap)["sort"]
@@ -296,9 +304,9 @@ func (es *ElseSearch) Search(queryString, after string, returnType ReturnType) (
 		}
 
 		hits := full["hits"].(jmap)
-		list := hits["hits"].([]interface{})
-		rows := make([]interface{}, 0, len(list))
-		var last interface{}
+		list := hits["hits"].(jarr)
+		rows := make(jarr, 0, len(list))
+		var last jobj
 
 		if len(columns) == 0 && len(list) > 0 {
 			m := list[0].(jmap)["_source"].(jmap) // assume the first row has all the names
@@ -320,7 +328,7 @@ func (es *ElseSearch) Search(queryString, after string, returnType ReturnType) (
 				}
 				rows = append(rows, a)
 			} else {
-				a := make([]interface{}, l)
+				a := make(jarr, l)
 				for i, k := range columns {
 					a[i] = getpath(m, k)
 				}
