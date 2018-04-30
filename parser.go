@@ -39,7 +39,6 @@ const (
 	AND
 	OR
 	NOT
-	IN
 	BETWEEN
 
 	NO_KEYWORD Keyword = -1
@@ -56,6 +55,7 @@ const (
 	OP_AND
 	OP_OR
 	OP_NOT
+	IN
 	STRING_EXPR
 	EXISTS_EXPR
 	MISSING_EXPR
@@ -103,7 +103,6 @@ var (
 		"AND":     AND,
 		"OR":      OR,
 		"NOT":     NOT,
-		"IN":      IN,
 		"BETWEEN": BETWEEN,
 	}
 
@@ -125,7 +124,6 @@ var (
 		AND:     "AND",
 		OR:      "OR",
 		NOT:     "NOT",
-		IN:      "IN",
 		BETWEEN: "BETWEEN",
 	}
 
@@ -139,6 +137,7 @@ var (
 		OP_AND:       "AND",
 		OP_OR:        "OR",
 		OP_NOT:       "NOT",
+		IN:           "IN",
 		STRING_EXPR:  "\"\"",
 		EXISTS_EXPR:  "EXIST",
 		MISSING_EXPR: "MISSING",
@@ -722,6 +721,28 @@ func (p *ElseParser) parseValue() (interface{}, error) {
 	return 0, p.parseError("value")
 }
 
+/*
+ * Parse (comma separated) list of values
+ */
+func (p *ElseParser) parseValues() ([]interface{}, error) {
+	var result []interface{}
+
+	for {
+		v, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, v)
+
+		if match, _ := p.parseToken(list_sep, true); match == false {
+			break
+		}
+	}
+
+	return result, nil
+}
+
 func (p *ElseParser) parseOperator() (Operator, error) {
 	op := NO_OPERATOR
 	var err error
@@ -756,6 +777,14 @@ func (p *ElseParser) parseOperator() (Operator, error) {
 			op = LTE
 		} else {
 			op = LT
+		}
+
+	case scanner.Ident:
+		if strings.ToUpper(p.lastText) == `IN` {
+			p.lastText = ""
+			op = IN
+		} else {
+			err = p.parseError("operator")
 		}
 
 	default:
