@@ -56,6 +56,8 @@ const (
 	OP_OR
 	OP_NOT
 	IN
+	OPENP
+	CLOSEP
 	STRING_EXPR
 	EXISTS_EXPR
 	MISSING_EXPR
@@ -141,6 +143,8 @@ var (
 		STRING_EXPR:  "\"\"",
 		EXISTS_EXPR:  "EXIST",
 		MISSING_EXPR: "MISSING",
+		OPENP:        "(",
+		CLOSEP:       ")",
 	}
 )
 
@@ -174,6 +178,28 @@ func (nv NameValue) Strings() (n, v string) {
 		v = fmt.Sprintf("%q", s)
 	} else {
 		v = fmt.Sprintf("%v", nv.Value)
+	}
+
+	return
+}
+
+func (nv NameValue) List(sep string) (n, v string) {
+	n = nv.Name
+
+	if a, ok := nv.Value.([]interface{}); ok {
+		vv := make([]string, 0, len(a))
+
+		for _, item := range a {
+			if s, ok := item.(string); ok {
+				v = fmt.Sprintf("%q", s)
+			} else {
+				v = fmt.Sprintf("%v", item)
+			}
+
+			vv = append(vv, v)
+		}
+
+		v = strings.Join(vv, sep)
 	}
 
 	return
@@ -277,6 +303,11 @@ func (e *Expression) QueryString() string {
 
 	case OP_AND, OP_OR:
 		return e.join()
+
+	case IN:
+		// this should be {"terms": {"name": [values]}}
+		n, v := e.operands[0].(NameValue).List(" OR ")
+		return n + ":(" + v + ")"
 	}
 
 	return e.String()
@@ -798,6 +829,21 @@ func (p *ElseParser) parseOperator() (Operator, error) {
 	return op, err
 }
 
+func (p *ElseParser) parseParen(op Operator) error {
+	t := p.nextToken()
+	switch {
+	case t == '(' && op == OPENP:
+		p.lastText = ""
+		return nil
+
+	case t == ')' && op == CLOSEP:
+		p.lastText = ""
+		return nil
+	}
+
+	return p.parseError("paren")
+}
+
 func (p *ElseParser) parseDone() bool {
 	return p.nextToken() == scanner.EOF
 }
@@ -821,12 +867,30 @@ func (p *ElseParser) parseExpression() (*Expression, error) {
 			if err != nil {
 				return nil, err
 			}
-			value, err := p.parseValue()
-			if err != nil {
-				return nil, err
-			}
 
-			expr = nameValueExpression(op, name, value)
+			if op == IN {
+				if err := p.parseParen(OPENP); err != nil {
+					return nil, err
+				}
+
+				values, err := p.parseValues()
+				if err != nil {
+					return nil, err
+				}
+
+				if err := p.parseParen(CLOSEP); err != nil {
+					return nil, err
+				}
+
+				expr = nameValueExpression(op, name, values)
+			} else {
+				value, err := p.parseValue()
+				if err != nil {
+					return nil, err
+				}
+
+				expr = nameValueExpression(op, name, value)
+			}
 		}
 
 		if not {
