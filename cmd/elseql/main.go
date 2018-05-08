@@ -162,7 +162,12 @@ func main() {
 					enc.Encode(res)
 				}
 
-				return len(res["rows"].([]interface{})), res["total"].(int)
+				if rFormat == "full" {
+					hits := res["hits"].(map[string]interface{})
+					return len(hits["hits"].([]interface{})), int(hits["total"].(float64))
+				} else {
+					return len(res["rows"].([]interface{})), res["total"].(int)
+				}
 			}
 		}
 	}
