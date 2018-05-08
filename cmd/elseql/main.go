@@ -72,10 +72,10 @@ func returnType(f string, r elseql.ReturnType) elseql.ReturnType {
 		r = elseql.Data
 	case "list":
 		r = elseql.List
-	case "csv", "csv-headers":
+	case "csv", "csv-headers", "local-csv", "local-csv-headers":
 		r = elseql.StringList
 	default:
-		log.Println("invalid format %q - use full,data,list,csv or csv-headers", f)
+		log.Printf("invalid format %q - use full,data,list,csv or csv-headers", f)
 	}
 
 	return r
@@ -100,21 +100,44 @@ func main() {
 		esproxy.Verbose = elseql.Debug
 
 		runQuery = func(q string) (int, int) {
+			sFormat := rFormat
+			if rFormat == "local-csv" || rFormat == "local-csv-headers" || *pprint == "" {
+				sFormat = "list"
+			}
 			res, err := esproxy.Get("", map[string]interface{}{
 				"q": q,
-				"f": rFormat,
+				"f": sFormat,
 			}, nil)
 			if err == nil {
 				err = res.ResponseError()
 			}
-
-			defer res.Close()
 			if err != nil {
 				log.Println("ERROR", err)
 				return -1, -1
 			} else {
 				if rFormat == "csv" || rFormat == "csv-headers" || *pprint == "" {
-					io.Copy(os.Stdout, res.Body)
+					n, err := io.Copy(os.Stdout, res.Body)
+					if err != nil {
+						log.Println("error", err)
+					} else {
+						log.Println("copied", n, res.ContentLength)
+					}
+				} else if rFormat == "local-csv" || rFormat == "local-csv-headers" {
+					var data struct {
+						Columns []string   `json:"columns"`
+						Rows    [][]string `json:"rows"`
+					}
+
+					err = json.NewDecoder(res.Body).Decode(&data)
+
+					w := csv.NewWriter(os.Stdout)
+					if rFormat == "local-csv-headers" {
+						w.Write(data.Columns)
+					}
+					for _, r := range data.Rows {
+						w.Write(r)
+					}
+					w.Flush()
 				} else {
 					var data interface{}
 					err = json.NewDecoder(res.Body).Decode(&data)
