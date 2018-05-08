@@ -168,7 +168,7 @@ func (nv NameValue) QueryString() string {
 	if s, ok := nv.Value.(string); ok {
 		return fmt.Sprintf("%v:%q", nv.Name, s)
 	} else {
-		return fmt.Sprintf("%v:%v", nv.Name, nv.Value)
+		return fmt.Sprintf("%v:%v", nv.Name, stringify(nv.Value, "null"))
 	}
 }
 
@@ -1012,7 +1012,16 @@ func (p *ElseParser) Parse() (err error) {
 		if err = p.parseRequired(BY); err != nil {
 			return
 		}
-		if p.query.OrderList, err = p.parseOrderIdentifiers(); err != nil {
+
+		if script, serr := p.parseString(); serr == nil {
+			if Debug {
+				log.Println("got script", script)
+			}
+
+			p.query.OrderList = []NameValue{
+				NameValue{"_script", decodeObject(script)},
+			}
+		} else if p.query.OrderList, err = p.parseOrderIdentifiers(); err != nil {
 			return
 		}
 	}
