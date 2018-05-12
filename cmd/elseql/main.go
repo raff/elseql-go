@@ -116,12 +116,7 @@ func main() {
 				return -1, -1
 			} else {
 				if rFormat == "csv" || rFormat == "csv-headers" || *pprint == "" {
-					n, err := io.Copy(os.Stdout, res.Body)
-					if err != nil {
-						log.Println("error", err)
-					} else {
-						log.Println("copied", n, res.ContentLength)
-					}
+					io.Copy(os.Stdout, res.Body)
 				} else if rFormat == "local-csv" || rFormat == "local-csv-headers" {
 					var data struct {
 						Columns []string   `json:"columns"`
