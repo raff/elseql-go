@@ -148,8 +148,6 @@ func (es *ElseSearch) Search(queryString, after, nilValue string, returnType Ret
 					},
 				},
 			}
-		} else {
-			jq = jmap{"query": jmap{"match_all": jmap{}}}
 		}
 
 		if query.FilterExpr != nil {
@@ -163,8 +161,12 @@ func (es *ElseSearch) Search(queryString, after, nilValue string, returnType Ret
 				}
 			} else if query.FilterExpr.MissingExpression() {
 				filter = jmap{
-					"missing": jmap{
-						"field": query.FilterExpr.GetOperand().(string),
+					"bool": jmap{
+						"must_not": jmap{
+							"exists": jmap{
+								"field": query.FilterExpr.GetOperand().(string),
+							},
+						},
 					},
 				}
 			} else {
@@ -178,7 +180,13 @@ func (es *ElseSearch) Search(queryString, after, nilValue string, returnType Ret
 				}
 			}
 
-			jq["filter"] = filter
+			if jq == nil {
+				jq = jmap{"query": filter}
+			} else {
+				jq["filter"] = filter
+			}
+		} else if jq == nil {
+			jq = jmap{"query": jmap{"match_all": jmap{}}}
 		}
 
 		if len(query.FacetList) > 0 {
