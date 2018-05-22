@@ -25,6 +25,7 @@ var (
 		// "COUNT",
 		"FACETS",
 		"FROM",
+		"FILTER",
 		"WHERE",
 		"AND",
 		"OR",
@@ -33,6 +34,8 @@ var (
 		"DESC",
 		"LIMIT",
 		"NEXT",
+		"NOT",
+		"EXIST",
 		"_all",
 		".keyword",
 
@@ -136,44 +139,44 @@ func main() {
 			if err != nil {
 				log.Println("ERROR", err)
 				return -1, -1
-			} else {
-				if rFormat == "csv" || rFormat == "csv-headers" || *pprint == "" {
-					io.Copy(os.Stdout, res.Body)
-				} else if rFormat == "local-csv" || rFormat == "local-csv-headers" {
-					var data struct {
-						Columns []string   `json:"columns"`
-						Rows    [][]string `json:"rows"`
-					}
+			}
 
-					err = json.NewDecoder(res.Body).Decode(&data)
-
-					w := csv.NewWriter(os.Stdout)
-					if rFormat == "local-csv-headers" {
-						w.Write(data.Columns)
-					}
-					for _, r := range data.Rows {
-						w.Write(r)
-					}
-					w.Flush()
-				} else {
-					var data interface{}
-					err = json.NewDecoder(res.Body).Decode(&data)
-					if err != nil {
-						log.Println("ERROR", err)
-					} else if *pprint == "pretty" {
-						pretty.PrettyPrint(data)
-					} else {
-						enc := json.NewEncoder(os.Stdout)
-						enc.SetEscapeHTML(false)
-						enc.SetIndent("", *pprint)
-						enc.Encode(data)
-					}
+			if rFormat == "csv" || rFormat == "csv-headers" || *pprint == "" {
+				io.Copy(os.Stdout, res.Body)
+			} else if rFormat == "local-csv" || rFormat == "local-csv-headers" {
+				var data struct {
+					Columns []string   `json:"columns"`
+					Rows    [][]string `json:"rows"`
 				}
 
-				n, _ := strconv.Atoi(res.Header.Get("x-elseql-count"))
-				t, _ := strconv.Atoi(res.Header.Get("x-elseql-total"))
-				return n, t
+				err = json.NewDecoder(res.Body).Decode(&data)
+
+				w := csv.NewWriter(os.Stdout)
+				if rFormat == "local-csv-headers" {
+					w.Write(data.Columns)
+				}
+				for _, r := range data.Rows {
+					w.Write(r)
+				}
+				w.Flush()
+			} else {
+				var data interface{}
+				err = json.NewDecoder(res.Body).Decode(&data)
+				if err != nil {
+					log.Println("ERROR", err)
+				} else if *pprint == "pretty" {
+					pretty.PrettyPrint(data)
+				} else {
+					enc := json.NewEncoder(os.Stdout)
+					enc.SetEscapeHTML(false)
+					enc.SetIndent("", *pprint)
+					enc.Encode(data)
+				}
 			}
+
+			n, _ := strconv.Atoi(res.Header.Get("x-elseql-count"))
+			t, _ := strconv.Atoi(res.Header.Get("x-elseql-total"))
+			return n, t
 		}
 	} else {
 		es := elseql.NewClient(*url)
@@ -183,32 +186,32 @@ func main() {
 			if err != nil {
 				log.Println("ERROR", err)
 				return -1, -1
-			} else {
-				if rFormat == "csv" || rFormat == "csv-headers" {
-					w := csv.NewWriter(os.Stdout)
-					if rFormat == "csv-headers" {
-						w.Write(res["columns"].([]string))
-					}
-					for _, r := range res["rows"].([]interface{}) {
-						w.Write(r.([]string))
-					}
-					w.Flush()
-				} else if *pprint == "pretty" {
-					pretty.PrettyPrint(res)
-				} else {
-					enc := json.NewEncoder(os.Stdout)
-					enc.SetEscapeHTML(false)
-					enc.SetIndent(*pprint, *pprint)
-					enc.Encode(res)
-				}
-
-				if rFormat == "full" {
-					hits := res["hits"].(map[string]interface{})
-					return len(hits["hits"].([]interface{})), int(hits["total"].(float64))
-				} else {
-					return len(res["rows"].([]interface{})), res["total"].(int)
-				}
 			}
+
+			if rFormat == "csv" || rFormat == "csv-headers" {
+				w := csv.NewWriter(os.Stdout)
+				if rFormat == "csv-headers" {
+					w.Write(res["columns"].([]string))
+				}
+				for _, r := range res["rows"].([]interface{}) {
+					w.Write(r.([]string))
+				}
+				w.Flush()
+			} else if *pprint == "pretty" {
+				pretty.PrettyPrint(res)
+			} else {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetEscapeHTML(false)
+				enc.SetIndent(*pprint, *pprint)
+				enc.Encode(res)
+			}
+
+			if rFormat == "full" {
+				hits := res["hits"].(map[string]interface{})
+				return len(hits["hits"].([]interface{})), int(hits["total"].(float64))
+			}
+
+			return len(res["rows"].([]interface{})), res["total"].(int)
 		}
 	}
 
