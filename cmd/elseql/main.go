@@ -40,6 +40,7 @@ var (
 		".keyword",
 
 		".format",
+		".output",
 	}
 
 	formats = []string{
@@ -97,7 +98,7 @@ func main() {
 	rType := returnType(*format, elseql.Data)
 	rFormat := *format
 
-	var runQuery func(string) (int, int)
+	var runQuery func(string, io.Writer) (int, int)
 
 	*proxy = *proxy || *proxyQ
 
@@ -105,7 +106,7 @@ func main() {
 		esproxy := httpclient.NewHttpClient(*url)
 		esproxy.Verbose = elseql.Debug
 
-		runQuery = func(q string) (int, int) {
+		runQuery = func(q string, out io.Writer) (int, int) {
 			if *proxyQ {
 				jq, _, _, err := elseql.ParseQuery(q, "")
 				if err != nil {
@@ -142,7 +143,7 @@ func main() {
 			}
 
 			if rFormat == "csv" || rFormat == "csv-headers" || *pprint == "" {
-				io.Copy(os.Stdout, res.Body)
+				io.Copy(out, res.Body)
 			} else if rFormat == "local-csv" || rFormat == "local-csv-headers" {
 				var data struct {
 					Columns []string   `json:"columns"`
@@ -151,7 +152,7 @@ func main() {
 
 				err = json.NewDecoder(res.Body).Decode(&data)
 
-				w := csv.NewWriter(os.Stdout)
+				w := csv.NewWriter(out)
 				if rFormat == "local-csv-headers" {
 					w.Write(data.Columns)
 				}
@@ -167,7 +168,7 @@ func main() {
 				} else if *pprint == "pretty" {
 					pretty.PrettyPrint(data)
 				} else {
-					enc := json.NewEncoder(os.Stdout)
+					enc := json.NewEncoder(out)
 					enc.SetEscapeHTML(false)
 					enc.SetIndent("", *pprint)
 					enc.Encode(data)
@@ -181,7 +182,7 @@ func main() {
 	} else {
 		es := elseql.NewClient(*url)
 
-		runQuery = func(q string) (int, int) {
+		runQuery = func(q string, out io.Writer) (int, int) {
 			res, err := es.Search(q, "", "", rType)
 			if err != nil {
 				log.Println("ERROR", err)
@@ -189,7 +190,7 @@ func main() {
 			}
 
 			if rFormat == "csv" || rFormat == "csv-headers" {
-				w := csv.NewWriter(os.Stdout)
+				w := csv.NewWriter(out)
 				if rFormat == "csv-headers" {
 					w.Write(res["columns"].([]string))
 				}
@@ -200,7 +201,7 @@ func main() {
 			} else if *pprint == "pretty" {
 				pretty.PrettyPrint(res)
 			} else {
-				enc := json.NewEncoder(os.Stdout)
+				enc := json.NewEncoder(out)
 				enc.SetEscapeHTML(false)
 				enc.SetIndent(*pprint, *pprint)
 				enc.Encode(res)
@@ -216,7 +217,7 @@ func main() {
 	}
 
 	if q != "" {
-		runQuery(q)
+		runQuery(q, os.Stdout)
 		return
 	}
 
@@ -269,6 +270,8 @@ func main() {
 		true:  ": ",
 	}
 
+	stdout := os.Stdout
+
 	for {
 		l, err := line.Prompt(prompt[multi])
 		if err != nil {
@@ -312,9 +315,33 @@ func main() {
 			continue
 		}
 
+		if cmd == ".output" {
+			if os.Stdout != stdout {
+				os.Stdout.Close()
+			}
+
+			os.Stdout = stdout
+			continue
+		}
+
+		if strings.HasPrefix(cmd, ".output ") {
+			if os.Stdout != stdout {
+				os.Stdout.Close()
+			}
+
+			parts := strings.SplitN(cmd, " ", 2)
+			os.Stdout, err = os.Create(parts[1])
+			if err != nil {
+				log.Println(err)
+				os.Stdout = stdout
+			}
+
+			continue
+		}
+
 		fmt.Println()
 
-		n, t := runQuery(cmd)
+		n, t := runQuery(cmd, os.Stdout)
 		if n >= 0 {
 			fmt.Printf("\n%v ROWS, %v TOTAL\n", n, t)
 		}
