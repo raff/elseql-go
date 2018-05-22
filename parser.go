@@ -858,6 +858,13 @@ func (p *ElseParser) parseExpression() (*Expression, error) {
 		stringExpr, _ := p.parseString()
 		if stringExpr != "" {
 			expr = singleOperand(STRING_EXPR, stringExpr)
+		} else if match, _ := p.parseKeyword(EXIST, true); match {
+			name, err := p.parseIdentifier()
+			if err != nil {
+				return nil, err
+			}
+
+			expr = singleOperand(EXISTS_EXPR, name)
 		} else {
 			name, err := p.parseIdentifier()
 			if err != nil {
