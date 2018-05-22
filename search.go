@@ -112,6 +112,133 @@ func (e SearchError) Error() string {
 	return fmt.Sprintf("Error: %q Query: %v", e.Err, e.Query)
 }
 
+// Parse an ElseSQL query and return an ElasticSearch query object, the index and the list of columns to return
+func ParseQuery(queryString, after string) (jq jmap, index string, columns []string, sErr error) {
+	parser := NewParser(queryString)
+
+	if err := parser.Parse(); err != nil {
+		sErr = SearchError{
+			Err:   err,
+			Query: queryString,
+		}
+		return
+	}
+
+	query := parser.Query()
+
+	if query.WhereExpr != nil {
+		jq = jmap{
+			"query": jmap{
+				"query_string": jmap{
+					"query": query.WhereExpr.QueryString(),
+					//"default_operator": "AND",
+				},
+			},
+		}
+	}
+
+	if query.FilterExpr != nil {
+		var filter jmap
+
+		if query.FilterExpr.ExistsExpression() {
+			filter = jmap{
+				"exists": jmap{
+					"field": query.FilterExpr.GetOperand().(string),
+				},
+			}
+		} else if query.FilterExpr.MissingExpression() {
+			filter = jmap{
+				"bool": jmap{
+					"must_not": jmap{
+						"exists": jmap{
+							"field": query.FilterExpr.GetOperand().(string),
+						},
+					},
+				},
+			}
+		} else {
+			filter = jmap{
+				"query": jmap{
+					"query_string": jmap{
+						"query":            query.FilterExpr.QueryString(),
+						"default_operator": "AND",
+					},
+				},
+			}
+		}
+
+		if jq == nil {
+			jq = jmap{"query": filter}
+		} else {
+			jq["filter"] = filter
+		}
+	} else if jq == nil {
+		jq = jmap{"query": jmap{"match_all": jmap{}}}
+	}
+
+	if len(query.FacetList) > 0 {
+		facets := jmap{}
+
+		for _, f := range query.FacetList {
+			facets[f] = jmap{"terms": jmap{"field": f}}
+		}
+
+		jq["aggs"] = facets
+	}
+
+	if query.Script != nil {
+		jq["script_fields"] = jmap{
+			query.Script.Name: jmap{
+				"script": query.Script.Value.(string),
+				"lang":   "expression",
+			},
+		}
+	}
+
+	if len(query.SelectList) > 0 {
+		jq["_source"] = query.SelectList
+	}
+
+	if len(query.OrderList) > 0 {
+		jq["sort"] = nvList(query.OrderList)
+	}
+
+	if query.Size >= 0 {
+		jq["from"] = query.From
+		jq["size"] = query.Size
+	}
+
+	if query.After != "" {
+		after = query.After
+	}
+
+	if after != "" {
+		after := decodeObject(after)
+		if after == nil {
+			sErr = SearchError{
+				Err:   ParseError("invalid value for AFTER"),
+				Query: queryString,
+			}
+			return
+		}
+
+		jq["search_after"] = after
+		if jq["sort"] != nil {
+			jq["sort"] = append(jq["sort"].([]jmap), jmap{"_id": "asc"})
+		} else {
+			jq["sort"] = []jmap{jmap{"_id": "asc"}}
+		}
+	}
+
+	index = query.Index
+	if index == "_all" {
+		index = ""
+	}
+
+	columns = query.SelectList
+	return
+}
+
 func (es *ElseSearch) Search(queryString, after, nilValue string, returnType ReturnType) (jmap, error) {
 	var jq jmap
 	var index string
@@ -128,126 +255,12 @@ func (es *ElseSearch) Search(queryString, after, nilValue string, returnType Ret
 
 		jq = jj.MustMap()
 	} else {
-		parser := NewParser(queryString)
+		var err error
 
-		if err := parser.Parse(); err != nil {
-			return nil, SearchError{
-				Err:   err,
-				Query: queryString,
-			}
+		jq, index, columns, err = ParseQuery(queryString, after)
+		if err != nil {
+			return nil, err
 		}
-
-		query := parser.Query()
-
-		if query.WhereExpr != nil {
-			jq = jmap{
-				"query": jmap{
-					"query_string": jmap{
-						"query": query.WhereExpr.QueryString(),
-						//"default_operator": "AND",
-					},
-				},
-			}
-		}
-
-		if query.FilterExpr != nil {
-			var filter jmap
-
-			if query.FilterExpr.ExistsExpression() {
-				filter = jmap{
-					"exists": jmap{
-						"field": query.FilterExpr.GetOperand().(string),
-					},
-				}
-			} else if query.FilterExpr.MissingExpression() {
-				filter = jmap{
-					"bool": jmap{
-						"must_not": jmap{
-							"exists": jmap{
-								"field": query.FilterExpr.GetOperand().(string),
-							},
-						},
-					},
-				}
-			} else {
-				filter = jmap{
-					"query": jmap{
-						"query_string": jmap{
-							"query":            query.FilterExpr.QueryString(),
-							"default_operator": "AND",
-						},
-					},
-				}
-			}
-
-			if jq == nil {
-				jq = jmap{"query": filter}
-			} else {
-				jq["filter"] = filter
-			}
-		} else if jq == nil {
-			jq = jmap{"query": jmap{"match_all": jmap{}}}
-		}
-
-		if len(query.FacetList) > 0 {
-			facets := jmap{}
-
-			for _, f := range query.FacetList {
-				facets[f] = jmap{"terms": jmap{"field": f}}
-			}
-
-			jq["aggs"] = facets
-		}
-
-		if query.Script != nil {
-			jq["script_fields"] = jmap{
-				query.Script.Name: jmap{
-					"script": query.Script.Value.(string),
-					"lang":   "expression",
-				},
-			}
-		}
-
-		if len(query.SelectList) > 0 {
-			jq["_source"] = query.SelectList
-		}
-
-		if len(query.OrderList) > 0 {
-			jq["sort"] = nvList(query.OrderList)
-		}
-
-		if query.Size >= 0 {
-			jq["from"] = query.From
-			jq["size"] = query.Size
-		}
-
-		if query.After != "" {
-			after = query.After
-		}
-
-		if after != "" {
-			after := decodeObject(after)
-			if after == nil {
-				return nil, SearchError{
-					Err:   ParseError("invalid value for AFTER"),
-					Query: queryString,
-				}
-			}
-
-			jq["search_after"] = after
-			if jq["sort"] != nil {
-				jq["sort"] = append(jq["sort"].([]jmap), jmap{"_id": "asc"})
-			} else {
-				jq["sort"] = []jmap{jmap{"_id": "asc"}}
-			}
-		}
-
-		index = query.Index
-		if index == "_all" {
-			index = ""
-		}
-
-		columns = query.SelectList
 	}
 
 	if Debug {

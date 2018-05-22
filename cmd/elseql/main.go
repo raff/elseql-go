@@ -86,6 +86,7 @@ func main() {
 	format := flag.String("format", "data", "format of results: full, data, list, csv, csv-headers")
 	pprint := flag.String("print", " ", `how to print/indent output: use pretty for pretty-print or "  " to indent`)
 	proxy := flag.Bool("proxy", false, "if true, we are talking to a proxy server")
+	proxyQ := flag.Bool("proxy-query", false, "if true, we are talking to a proxy server, but parsing the query locally")
 	flag.BoolVar(&elseql.Debug, "debug", false, "log debug info")
 	flag.Parse()
 
@@ -95,11 +96,32 @@ func main() {
 
 	var runQuery func(string) (int, int)
 
+	*proxy = *proxy || *proxyQ
+
 	if *proxy {
 		esproxy := httpclient.NewHttpClient(*url)
 		esproxy.Verbose = elseql.Debug
 
 		runQuery = func(q string) (int, int) {
+			if *proxyQ {
+				jq, _, _, err := elseql.ParseQuery(q, "")
+				if err != nil {
+					log.Println("ERROR", err)
+					return -1, -1
+				}
+
+				bb, err := json.Marshal(jq)
+				if err != nil {
+					log.Println("ERROR", err)
+					return -1, -1
+				}
+
+				q = string(bb)
+				if elseql.Debug {
+					log.Println("QUERY:", q)
+				}
+			}
+
 			sFormat := rFormat
 			if rFormat == "local-csv" || rFormat == "local-csv-headers" || *pprint == "" {
 				sFormat = "list"
