@@ -230,7 +230,7 @@ func ParseQuery(queryString, after string) (jq jmap, index string, columns []str
 		}
 	}
 
-	index = query.Index
+	index = strings.Replace(query.Index, ".", "/", 1)  // convert index.doc to index/doc
 	if index == "_all" {
 		index = ""
 	}
