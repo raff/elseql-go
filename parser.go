@@ -527,7 +527,7 @@ func (p *ElseParser) parseError(expected string) error {
 /*
  * Parse ID
  */
-func (p *ElseParser) parseId() string {
+func (p *ElseParser) parseId(skipKeyword bool) string {
 	if p.nextToken() == scanner.EOF {
 		return ""
 	}
@@ -539,8 +539,10 @@ func (p *ElseParser) parseId() string {
 			log.Println("got id", word)
 		}
 
-		if _, ok := FindKeyword(word); ok {
-			return ""
+		if skipKeyword {
+			if _, ok := FindKeyword(word); ok {
+				return ""
+			}
 		}
 
 		p.lastText = ""
@@ -565,15 +567,17 @@ func (p *ElseParser) parseOrderIdentifier(sortorder bool) (NameValue, error) {
 	state := 0 // 0: id, 1: sep, 2: sort
 	ident := ""
 	order := ""
+	skip := true
 
 	for {
 		//
 		// expecting ID
 		//
 		if state == 0 {
-			if word := p.parseId(); word != "" {
+			if word := p.parseId(skip); word != "" {
 				ident += word
 				state = 1
+				continue
 			}
 		}
 
@@ -590,6 +594,7 @@ func (p *ElseParser) parseOrderIdentifier(sortorder bool) (NameValue, error) {
 			if match {
 				ident += string(id_sep)
 				state = 0
+				skip = false
 				continue
 			}
 
@@ -938,7 +943,7 @@ func (p *ElseParser) parseFilter() (*Expression, error) {
  * parse scriptId = "script expression"
  */
 func (p *ElseParser) parseScript() (*NameValue, error) {
-	id := p.parseId()
+	id := p.parseId(true)
 	if id == "" {
 		return nil, p.parseError("id")
 	}
