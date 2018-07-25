@@ -23,6 +23,10 @@ func NewClient(endpoint string) *ElseSearch {
 	return &ElseSearch{client: httpclient.NewHttpClient(endpoint)}
 }
 
+func (es *ElseSearch) AllowInsecure(insecure bool) {
+	es.client.AllowInsecure(insecure)
+}
+
 func nvList(lin []NameValue) (lout []jmap) {
 	for _, nv := range lin {
 		lout = append(lout, jmap{nv.Name: nv.Value})

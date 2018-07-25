@@ -87,6 +87,7 @@ func returnType(f string, r elseql.ReturnType) elseql.ReturnType {
 
 func main() {
 	url := flag.String("url", "http://localhost:9200", "ElasticSearch endpoint")
+	insecure := flag.Bool("insecure", false, "if true, allow possibly insecure HTTPS connetions")
 	format := flag.String("format", "data", "format of results: full, data, list, csv, csv-headers")
 	pprint := flag.String("print", " ", `how to print/indent output: use pretty for pretty-print or "  " to indent`)
 	proxy := flag.Bool("proxy", false, "if true, we are talking to a proxy server")
@@ -181,6 +182,7 @@ func main() {
 		}
 	} else {
 		es := elseql.NewClient(*url)
+		es.AllowInsecure(*insecure)
 
 		runQuery = func(q string, out io.Writer) (int, int) {
 			res, err := es.Search(q, "", "", rType)
