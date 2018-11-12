@@ -237,7 +237,7 @@ func (q *Query) String() string {
     After %v`, q.SelectList,
 		q.FacetList,
 		q.Index,
-		q.WhereExpr,
+		q.WhereExpr.QueryString(),
 		q.FilterExpr.QueryString(),
 		q.Script,
 		q.OrderList,
