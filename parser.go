@@ -166,6 +166,12 @@ func (nv NameValue) String() string {
 
 func (nv NameValue) QueryString() string {
 	if s, ok := nv.Value.(string); ok {
+		if s == "" {
+			return fmt.Sprintf("%v:*", nv.Name)
+		}
+		if strings.ContainsAny(s[0:1], "([{") || strings.Contains(s, "*") {
+			return fmt.Sprintf("%v:%v", nv.Name, s)
+		}
 		return fmt.Sprintf("%v:%q", nv.Name, s)
 	} else {
 		return fmt.Sprintf("%v:%v", nv.Name, stringify(nv.Value, "null"))
