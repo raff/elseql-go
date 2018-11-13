@@ -108,8 +108,10 @@ func main() {
 		esproxy.Verbose = elseql.Debug
 
 		runQuery = func(q string, out io.Writer) (int, int) {
+			params := map[string]interface{}{}
+
 			if *proxyQ {
-				jq, _, _, err := elseql.ParseQuery(q, "")
+				jq, index, _, err := elseql.ParseQuery(q, "")
 				if err != nil {
 					log.Println("ERROR", err)
 					return -1, -1
@@ -123,18 +125,20 @@ func main() {
 
 				q = string(bb)
 				if elseql.Debug {
-					log.Println("QUERY:", q)
+					log.Println("INDEX:", index, "QUERY:", q)
 				}
+
+				params["x"] = index
 			}
 
 			sFormat := rFormat
 			if rFormat == "local-csv" || rFormat == "local-csv-headers" || *pprint == "" {
 				sFormat = "list"
 			}
-			res, err := esproxy.Get("", map[string]interface{}{
-				"q": q,
-				"f": sFormat,
-			}, nil)
+			params["q"] = q
+			params["f"] = sFormat
+
+			res, err := esproxy.Get("", params, nil)
 			if err == nil {
 				err = res.ResponseError()
 			}
@@ -185,7 +189,7 @@ func main() {
 		es.AllowInsecure(*insecure)
 
 		runQuery = func(q string, out io.Writer) (int, int) {
-			res, err := es.Search(q, "", "", rType)
+			res, err := es.Search(q, "", "", "", rType)
 			if err != nil {
 				log.Println("ERROR", err)
 				return -1, -1

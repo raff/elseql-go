@@ -243,9 +243,8 @@ func ParseQuery(queryString, after string) (jq jmap, index string, columns []str
 	return
 }
 
-func (es *ElseSearch) Search(queryString, after, nilValue string, returnType ReturnType) (jmap, error) {
+func (es *ElseSearch) Search(queryString, after, nilValue, index string, returnType ReturnType) (jmap, error) {
 	var jq jmap
-	var index string
 	var columns []string
 
 	if strings.HasPrefix(queryString, "{") { // ES JSON query
