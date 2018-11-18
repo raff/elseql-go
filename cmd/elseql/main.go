@@ -121,7 +121,7 @@ func main() {
 			if *proxyQ {
 				jq, index, _, err := elseql.ParseQuery(q, "")
 				if err != nil {
-					log.Println("ERROR", err)
+					log.Println("ERROR", err.Error())
 					return -1, -1
 				}
 
@@ -151,7 +151,10 @@ func main() {
 				err = res.ResponseError()
 			}
 			if err != nil {
-				log.Println("ERROR", err)
+                                log.Println("ERROR", err)
+                                if res != nil && res.ContentLength > 0 {
+                                    log.Println(" ", string(res.Content()))
+                                }
 				return -1, -1
 			}
 

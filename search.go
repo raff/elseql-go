@@ -82,6 +82,15 @@ func getparts(o jobj, parts []string) (ret jobj) {
 	return
 }
 
+func parent(path string) string {
+	i := strings.LastIndex(path, ".")
+	if i < 1 {
+		return ""
+	}
+
+	return path[0:i]
+}
+
 // void search(String queryString, Util.Format format, boolean streaming, boolean debug)
 
 type ReturnType int
@@ -357,7 +366,7 @@ func (es *ElseSearch) Search(queryString, after, nilValue, index string, returnT
 				arr jarr
 			}
 
-			ll := 0
+			nested := ""
 
 			for i, k := range columns {
 				res := getpath(m, k)
@@ -378,14 +387,14 @@ func (es *ElseSearch) Search(queryString, after, nilValue, index string, returnT
 						a[i] = res
 						continue
 					default:
-						if ll != 0 {
+						if nested != "" && parent(k) != nested {
 							return nil, SearchError{
 								Err:   fmt.Errorf("too many nested lists in result"),
 								Query: simplejson.MustDumpString(jq),
 							}
 						}
 					}
-					ll = len(aa)
+					nested = parent(k)
 					l = append(l, struct {
 						pos int
 						arr jarr
@@ -401,7 +410,9 @@ func (es *ElseSearch) Search(queryString, after, nilValue, index string, returnT
 				}
 			}
 
-			if ll > 0 { // there are some arrays
+			if nested != "" { // we have nested fields
+				ll := len(l[0].arr)
+
 				for i := 0; i < ll; i++ {
 					ele := make(jarr, len(a))
 					copy(ele, a)
