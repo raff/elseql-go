@@ -367,12 +367,24 @@ func (es *ElseSearch) Search(queryString, after, nilValue, index string, returnT
 					} else {
 						a[i] = nil
 					}
-					if len(aa) == 0 {
+					switch len(aa) {
+					case 0:
 						continue
+					case 1:
+						if returnType == StringList {
+							res = stringify(res, nilValue)
+						}
+						a[i] = res
+						continue
+					default:
+						if ll != 0 {
+							return nil, SearchError{
+								Err:   fmt.Errorf("too many nested lists in result"),
+								Query: simplejson.MustDumpString(jq),
+							}
+						}
 					}
-					if len(aa) > ll {
-						ll = len(aa)
-					}
+					ll = len(aa)
 					l = append(l, struct {
 						pos int
 						arr jarr
