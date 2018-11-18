@@ -371,6 +371,7 @@ func (es *ElseSearch) Search(queryString, after, nilValue, index string, returnT
 					case 0:
 						continue
 					case 1:
+						res = aa[0]
 						if returnType == StringList {
 							res = stringify(res, nilValue)
 						}
