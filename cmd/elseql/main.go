@@ -85,6 +85,14 @@ func returnType(f string, r elseql.ReturnType) elseql.ReturnType {
 	return r
 }
 
+func toStrings(li []interface{}) []string {
+	ls := make([]string, len(li))
+	for i, s := range li {
+		ls[i] = s.(string)
+	}
+	return ls
+}
+
 func main() {
 	url := flag.String("url", "http://localhost:9200", "ElasticSearch endpoint")
 	insecure := flag.Bool("insecure", false, "if true, allow possibly insecure HTTPS connetions")
@@ -201,7 +209,7 @@ func main() {
 					w.Write(res["columns"].([]string))
 				}
 				for _, r := range res["rows"].([]interface{}) {
-					w.Write(r.([]string))
+					w.Write(toStrings(r.([]interface{})))
 				}
 				w.Flush()
 			} else if *pprint == "pretty" {
