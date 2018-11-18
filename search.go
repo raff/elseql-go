@@ -55,9 +55,12 @@ func stringify(v jobj, nv string) string {
 
 func getpath(m jmap, k string) (ret jobj) {
 	parts := strings.Split(k, ".")
-	ret = m
-	for _, k := range parts {
-	redo:
+	return getparts(m, parts)
+}
+
+func getparts(o jobj, parts []string) (ret jobj) {
+	ret = o
+	for pk, k := range parts {
 		if mm, ismap := ret.(jmap); ismap {
 			if val, ok := mm[k]; ok {
 				ret = val
@@ -65,12 +68,15 @@ func getpath(m jmap, k string) (ret jobj) {
 				return nil
 			}
 		} else if aa, isarray := ret.(jarr); isarray {
-			if len(aa) > 0 {
-				ret = aa[0]
-				goto redo
-			} else {
+			if len(aa) == 0 {
 				return nil
 			}
+
+			aret := make([]jobj, len(aa))
+			for i, v := range aa {
+				aret[i] = getparts(v, parts[pk:])
+			}
+			ret = aret
 		}
 	}
 	return
@@ -339,26 +345,69 @@ func (es *ElseSearch) Search(queryString, after, nilValue, index string, returnT
 			}
 			sort.Strings(columns)
 		}
-		l := len(columns)
 
 		for _, r := range list {
 			m := r.(jmap)["_source"].(jmap)
 			last = r.(jmap)["sort"]
 
-			if returnType == StringList {
-				a := make([]string, l)
-				for i, k := range columns {
-					a[i] = stringify(getpath(m, k), nilValue)
-				}
-				rows = append(rows, a)
-			} else {
-				a := make(jarr, l)
-				for i, k := range columns {
-					a[i] = getpath(m, k)
-				}
-				rows = append(rows, a)
+			a := make(jarr, len(columns))
+
+			var l []struct {
+				pos int
+				arr jarr
 			}
 
+			ll := 0
+
+			for i, k := range columns {
+				res := getpath(m, k)
+				if aa, ok := res.(jarr); ok {
+					if returnType == StringList {
+						a[i] = nilValue
+					} else {
+						a[i] = nil
+					}
+					if len(aa) == 0 {
+						continue
+					}
+					if len(aa) > ll {
+						ll = len(aa)
+					}
+					l = append(l, struct {
+						pos int
+						arr jarr
+					}{
+						pos: i,
+						arr: aa,
+					})
+				} else {
+					if returnType == StringList {
+						res = stringify(res, nilValue)
+					}
+					a[i] = res
+				}
+			}
+
+			if ll > 0 { // there are some arrays
+				for i := 0; i < ll; i++ {
+					ele := make(jarr, len(a))
+					copy(ele, a)
+
+					for _, aa := range l {
+						if i < len(aa.arr) {
+							if returnType == StringList {
+								ele[aa.pos] = stringify(aa.arr[i], nilValue)
+							} else {
+								ele[aa.pos] = aa.arr[i]
+							}
+						}
+					}
+
+					rows = append(rows, ele)
+				}
+			} else {
+				rows = append(rows, a)
+			}
 		}
 		data["columns"] = columns
 		data["rows"] = rows
