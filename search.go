@@ -292,7 +292,7 @@ func (es *ElseSearch) Search(queryString, after, nilValue, index string, returnT
 		}
 	}
 
-	res, err := es.client.SendRequest(es.client.Path(index+"/_search"), es.client.JsonBody(jq))
+	res, err := es.client.SendRequest(es.client.Path(index+"/_search"), httpclient.JsonBody(jq))
 	defer res.Close()
 
 	if err != nil {
