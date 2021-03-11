@@ -321,6 +321,9 @@ func main() {
 		if len(l) == 0 {
 			continue
 		}
+                if strings.HasPrefix(cmd, "#") {
+                        continue
+                }
 
 		line.AppendHistory(cmd)
 		hasHistory = true
